@@ -15,8 +15,7 @@ namespace WebApplicationFlowSync.services.EmailService
         {
             try
             {
-                var graphClient = _authProvider.GetPersonalAuthenticatedClient();
-
+                var graphClient = _authProvider.GetAuthenticatedClient();              
                 var message = new Message
                 {
                     Subject = request.Subject,
