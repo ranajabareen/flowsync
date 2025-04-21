@@ -11,6 +11,11 @@ using WebApplicationFlowSync.Models;
 using WebApplicationFlowSync.services.EmailService;
 using WebApplicationFlowSync.services;
 using Task = System.Threading.Tasks.Task;
+using WebApplicationFlowSync.services.ExternalServices;
+using Microsoft.Graph.Models.ExternalConnectors;
+using WebApplicationFlowSync.Classes;
+using WebApplicationFlowSync.services.SettingService;
+using WebApplicationFlowSync.services.CacheServices;
 
 namespace WebApplicationFlowSync
 {
@@ -73,9 +78,13 @@ namespace WebApplicationFlowSync
             builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
             builder.Services.AddProblemDetails();
 
-            // Email Service (outlook)
-            builder.Services.AddScoped<GraphAuthProvider>();
-            builder.Services.AddScoped<IEmailService, OutlookEmailService>();
+            builder.Services.Configure<ApplicationSettings>(builder.Configuration);
+            builder.Services.AddScoped<ISettingsService,SettingsService>();
+            builder.Services.AddMemoryCache();
+            builder.Services.AddScoped<ICacheService, CacheService>();
+
+            // Email Service 
+            RegisterMailServices(builder);
 
 
             //Add Auth Service (generate token)
@@ -159,5 +168,34 @@ namespace WebApplicationFlowSync
             app.UseExceptionHandler();
             app.Run();
         }
-    }
+
+        /// <summary>
+        /// RegisterMailServices
+        /// </summary>
+        /// <param name="builder"></param>
+        private static void RegisterMailServices(WebApplicationBuilder builder)
+        {
+            var config = builder.Configuration;
+            var microsoftAuthorizationUrl = config["MicrosoftAuthorizationServiceSettings:BaseUrl"] ?? "";
+            var emailHost = config.GetSection("EmailSettings")["EmailHost"];
+            
+            //Register microsoft authorization and graph servcies
+            builder.Services.AddScoped<GraphAuthProvider>();
+            builder.Services.AddHttpClient<IMicrosoftAuthorizationClient, MicrosoftAuthorizationClient>(client =>
+            {
+                client.BaseAddress = new Uri(microsoftAuthorizationUrl);
+            });
+
+            //Register mail services
+            if (emailHost != null && emailHost == "smtp.office365.com")
+            {
+                builder.Services.AddScoped<IEmailService, OutlookEmailService>();
+            }
+            else
+            {
+                builder.Services.AddScoped<IEmailService,EmailService>();
+            }
+        }
+        }
+    
 }
